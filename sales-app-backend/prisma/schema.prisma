@@ -1,0 +1,264 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPERADMIN
+  ADMIN
+  USER
+  COURIER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  name            String
+  email           String    @unique
+  password        String
+  role            UserRole  @default(USER)
+  address         String?
+  province        String?
+  regency         String?
+  district        String?
+  village         String?
+  mobile          String?
+  gender          Gender?
+  profileImageUrl String?   @map("profile_image_url")
+  lastLogin       DateTime? @map("last_login")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  isVerified Boolean  @default(false)
+
+  // Relations
+  orders         Order[]         @relation("UserOrders")
+  courierOrders  Order[]         @relation("CourierOrders")
+  stockMovements StockMovement[]
+  auditLogs      AuditLog[]
+  refreshTokens  RefreshToken[]
+  carts          Cart[]
+  wishlists      Wishlist[]
+  reviews        Review[]
+
+  @@index([role])
+  @@map("users")
+}
+
+model CompanyProfile {
+  id         Int      @id @default(autoincrement())
+  name       String
+  address    String?
+  phone      String?
+  email      String?
+  postalCode String?  @map("postal_code")
+  website    String?
+  logoUrl    String?  @map("logo_url")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("company_profile")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     @map("user_id")
+  action    String
+  entity    String
+  entityId  Int?     @map("entity_id")
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  tokenHash String
+  revoked   Boolean  @default(false)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String
+  parentId  Int?     @map("parent_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  parent   Category?  @relation("CategoryToParent", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryToParent")
+
+  products Product[]
+
+  @@index([parentId])
+  @@map("categories")
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  stock       Int      @default(0)
+  imageUrl    String?  @map("image_url")
+  gender      Gender?
+  categoryId  Int?     @map("category_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  category       Category?       @relation(fields: [categoryId], references: [id])
+  orderItems     OrderItem[]
+  stockMovements StockMovement[]
+  carts          Cart[]
+  variants       ProductVariant[]
+  wishlists      Wishlist[]
+  reviews        Review[]
+
+  @@index([categoryId])
+  @@map("products")
+}
+
+model ProductVariant {
+  id        Int     @id @default(autoincrement())
+  productId Int
+  size      String? // S, M, L, XL
+  color     String? // Black, White, etc
+  stock     Int     @default(0)
+  price     Decimal @db.Decimal(10, 2)
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+model Order {
+  id                 Int         @id @default(autoincrement())
+  userId             Int         @map("user_id")
+  courierId          Int?        @map("courier_id")
+  totalAmount        Decimal     @default(0) @map("total_amount") @db.Decimal(12, 2)
+  status             OrderStatus @default(PENDING)
+  deliveryMethod     String?     @map("delivery_method")
+  pickupCode         String?     @map("pickup_code")
+  paymentType        String?     @map("payment_type")
+  transactionId      String?     @map("transaction_id")
+  paymentStatus      String?     @map("payment_status")
+  paymentToken       String?     @map("payment_token")
+  paymentRedirectUrl String?     @map("payment_redirect_url")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+
+  user    User        @relation("UserOrders", fields: [userId], references: [id])
+  courier User?       @relation("CourierOrders", fields: [courierId], references: [id])
+  items   OrderItem[]
+
+  @@index([userId])
+  @@index([courierId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int     @map("order_id")
+  productId Int     @map("product_id")
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+  subtotal  Decimal @db.Decimal(12, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model Cart {
+  id        Int @id @default(autoincrement())
+  userId    Int @map("user_id")
+  productId Int @map("product_id")
+  quantity  Int @default(1)
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([userId])
+  @@index([productId])
+  @@map("cart")
+}
+
+model Wishlist {
+  id        Int @id @default(autoincrement())
+  userId    Int @map("user_id")
+  productId Int @map("product_id")
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([userId, productId])
+  @@map("wishlists")
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+  rating    Int      // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@map("reviews")
+}
+
+model StockMovement {
+  id         Int      @id @default(autoincrement())
+  productId  Int      @map("product_id")
+  direction  String
+  quantity   Int
+  sourceType String?  @map("source_type")
+  sourceId   Int?     @map("source_id")
+  note       String?
+  createdBy  Int?     @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id])
+  user    User?   @relation(fields: [createdBy], references: [id])
+
+  @@index([productId])
+  @@index([createdBy])
+  @@map("stock_movements")
+}
