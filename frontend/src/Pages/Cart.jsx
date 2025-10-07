@@ -6,9 +6,10 @@ import CartProduct from "../Components/CartProduct";
 import TotalCart from "../Components/TotalCart";
 
 const Cart = () => {
-  const { cartItems, products, navigate, fetchCart } = useContext(shopContext);
+  const { cartItems, products, navigate, fetchCart, updateQuantity } = useContext(shopContext);
   const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(true);
+  const [selectedItems, setSelectedItems] = useState({});
 
   useEffect(() => {
     if (user) {
@@ -22,22 +23,60 @@ const Cart = () => {
   const cartArray = [];
   for (const itemsID in cartItems) {
     for (const itemSize in cartItems[itemsID]) {
-      if (cartItems[itemsID][itemSize] > 0) {
+      const entry = cartItems[itemsID][itemSize];
+      if (entry && entry.quantity > 0) {
         cartArray.push({
           id: itemsID,
-          size: itemSize,
-          quantitty: cartItems[itemsID][itemSize],
+            size: itemSize,
+            quantity: entry.quantity,
+          variantId: entry.variantId || null
         });
       }
     }
   }
+
+  const toggleSelect = (id, size) => {
+    const key = `${id}::${size}`;
+    setSelectedItems(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+    const toggleSelectAll = () => {
+      const allSelected = cartArray.every(item => selectedItems[`${item.id}::${item.size}`]);
+      const next = {};
+      cartArray.forEach(item => {
+        next[`${item.id}::${item.size}`] = !allSelected;
+      });
+      setSelectedItems(next);
+    };
+
+    const deleteSelected = async () => {
+      for (const item of cartArray) {
+        const key = `${item.id}::${item.size}`;
+        if (selectedItems[key]) {
+          try {
+            // updateQuantity will call backend and refresh cart
+            await updateQuantity(item.id, item.size, 0);
+          } catch (e) {
+            console.error('Failed delete selected', e);
+          }
+        }
+      }
+      setSelectedItems({});
+    };
 
   const handleCheckout = () => {
     if (!user) {
       navigate("/login");
       return;
     }
-    navigate("/Placeorder");
+    // prepare selected items
+    const selected = cartArray.filter(item => selectedItems[`${item.id}::${item.size}`]);
+    if (selected.length === 0) {
+      // if nothing selected, behave like before and checkout all
+      navigate("/Placeorder");
+      return;
+    }
+    navigate("/Placeorder", { state: { selected } });
   };
 
   if (loading) return <div>Loading...</div>;
@@ -61,6 +100,17 @@ const Cart = () => {
         <div className="text-center py-10 text-gray-500">Keranjang kosong</div>
       ) : (
         <>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <input type="checkbox" aria-label="Select all" onChange={toggleSelectAll} checked={cartArray.length > 0 && cartArray.every(i => selectedItems[`${i.id}::${i.size}`])} />
+              <span className="text-sm text-gray-600">Select all</span>
+            </div>
+            <div>
+              {Object.values(selectedItems).some(Boolean) && (
+                <button onClick={deleteSelected} className="text-red-600 hover:underline">Hapus yang dipilih</button>
+              )}
+            </div>
+          </div>
           <div>
             {cartArray.map((item) => {
               const productData = products.find((product) => product.id == item.id);
@@ -70,17 +120,20 @@ const Cart = () => {
                   key={item.id + item.size}
                   Image1={productData.image}
                   Name1={productData.name}
-                  Price1={productData.price}
+                  Price1={ (item.variantId && cartItems[item.id] && cartItems[item.id][item.size] && cartItems[item.id][item.size].variantPrice) ? cartItems[item.id][item.size].variantPrice : productData.price }
                   Size1={item.size}
-                  countProduct={item.quantitty}
+                  countProduct={item.quantity}
                   ID={item.id}
+                  variantId={item.variantId}
+                  checked={selectedItems[`${item.id}::${item.size}`]}
+                  onToggleChecked={toggleSelect}
                 />
               );
             })}
             <hr className="mt-5" />
           </div>
           <div className="flex justify-end">
-            <TotalCart />
+            <TotalCart cartArray={cartArray} selectedItems={selectedItems} />
           </div>
           <div className="flex flex-col items-end ">
             <button

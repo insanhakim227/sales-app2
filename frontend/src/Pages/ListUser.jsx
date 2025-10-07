@@ -71,7 +71,9 @@ export default function ListUser() {
         <h2 className="text-2xl font-bold text-indigo-700">Daftar User Terverifikasi</h2>
         <div className="flex items-center gap-2">
           <div className="relative flex items-center gap-1">
+            <label htmlFor="listuser-search" className="sr-only">Cari nama atau email</label>
             <input
+              id="listuser-search"
               type="text"
               className="pl-8 pr-3 py-1 rounded border border-gray-300 focus:outline-none focus:ring focus:ring-indigo-200 text-sm"
               placeholder="Cari nama/email..."

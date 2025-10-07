@@ -1,6 +1,7 @@
 import { useContext } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
-import { AuthProvider, AuthContext } from "./Context/AuthContext";
+import { AuthContext } from "./Context/AuthContext";
+import UserAreaGuard from './Components/UserAreaGuard';
 import Home from './Pages/Home';
 import About from './Pages/About';
 import Product from './Pages/Product';
@@ -46,33 +47,77 @@ function AppRoutes() {
       {!hideNav && <SearchBar />}
       <ToastContainer />
   <LoginModal isOpen={shop?.loginModalOpen} onClose={() => shop?.setLoginModalOpen(false)} onSuccess={(user)=>{ /* no-op: LoginModal triggers queued flow after token persisted */ }} />
-  <ConfirmModal isOpen={shop?.confirmQueuedOpen} title='Tambah ke Keranjang' message='Anda yakin ingin menambahkan produk ini ke keranjang?' onCancel={()=>shop?.setConfirmQueuedOpen(false)} onConfirm={()=>shop?.performQueuedAdd()} />
+  {/* Show product preview inside confirm modal when confirming queued add */}
+  <ConfirmModal
+    isOpen={shop?.confirmQueuedOpen}
+    title='Tambah ke Keranjang'
+    onCancel={()=>shop?.setConfirmQueuedOpen(false)}
+    onConfirm={()=>shop?.performQueuedAdd()}
+    confirmLabel='Tambah'
+  >
+    {(() => {
+      const queued = shop?.queuedAdd;
+      if (!queued) return <p className="text-sm text-gray-700">Anda yakin ingin menambahkan produk ini ke keranjang?</p>;
+      const pid = Number(queued.itemID);
+      const idToFind = isNaN(pid) ? queued.itemID : pid;
+      const prod = shop?.products?.find(p => p.id === idToFind || p.id === String(idToFind));
+      if (!prod) return <p className="text-sm text-gray-700">Anda yakin ingin menambahkan produk ini ke keranjang?</p>;
+      return (
+        <div className="flex items-center gap-3">
+          <img src={prod.image || prod.image_url} alt={prod.name || prod.title || 'product'} className="w-16 h-16 object-cover rounded" />
+          <div>
+            <div className="font-semibold">{prod.name || prod.title}</div>
+            <div className="text-sm text-gray-600">{prod.price}</div>
+          </div>
+        </div>
+      );
+    })()}
+  </ConfirmModal>
+  <ConfirmModal
+    isOpen={shop?.confirmCheckoutOpen}
+    title='Konfirmasi Checkout'
+    onCancel={()=>shop?.setConfirmCheckoutOpen(false)}
+    onConfirm={()=>shop?.performQueuedCheckout()}
+    confirmLabel='Checkout'
+  >
+    {(() => {
+      const queued = shop?.queuedAdd;
+      if (!queued) return <p className="text-sm text-gray-700">Anda yakin ingin checkout produk ini?</p>;
+      const pid = Number(queued.itemID);
+      const idToFind = isNaN(pid) ? queued.itemID : pid;
+      const prod = shop?.products?.find(p => p.id === idToFind || p.id === String(idToFind));
+      if (!prod) return <p className="text-sm text-gray-700">Anda yakin ingin checkout produk ini?</p>;
+      const variant = prod.variants && prod.variants.find(v => String(v.id) === String(queued.variantId));
+      const price = (variant && variant.price) ? variant.price : prod.price || 0;
+      const qty = queued.quantity || 1;
+      return (
+        <div className="flex items-center gap-3">
+          <img src={prod.image || prod.image_url} alt={prod.name || prod.title || 'product'} className="w-16 h-16 object-cover rounded" />
+          <div>
+            <div className="font-semibold">{prod.name || prod.title}</div>
+            <div className="text-sm text-gray-600">Size: {queued.itemSize || 'default'}</div>
+            <div className="text-sm text-gray-600">Qty: {qty}</div>
+            <div className="text-sm text-gray-800 font-semibold">Subtotal: {shop?.formatRupiah ? shop.formatRupiah(price * qty) : (price * qty)}</div>
+          </div>
+        </div>
+      );
+    })()}
+  </ConfirmModal>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/Collections" element={<Collections />} />
-        <Route path="/About" element={<About />} />
-        <Route path="/products/:id" element={<Product />} />
-        <Route path="/Cart" element={<Cart />} />
-        <Route path="/Orders" element={<Orders />} />
-        <Route path="/Placeorder" element={<Placeorder />} />
-        <Route path="/Contact" element={<Contact />} />
-        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/" element={<UserAreaGuard> <Home /> </UserAreaGuard>} />
+        <Route path="/Collections" element={<UserAreaGuard> <Collections /> </UserAreaGuard>} />
+        <Route path="/About" element={<UserAreaGuard> <About /> </UserAreaGuard>} />
+        <Route path="/products/:id" element={<UserAreaGuard> <Product /> </UserAreaGuard>} />
+        <Route path="/Cart" element={<UserAreaGuard> <Cart /> </UserAreaGuard>} />
+        <Route path="/Orders" element={<UserAreaGuard> <Orders /> </UserAreaGuard>} />
+        <Route path="/Placeorder" element={<UserAreaGuard> <Placeorder /></UserAreaGuard>} />
+        <Route path="/Contact" element={<UserAreaGuard> <Contact /> </UserAreaGuard>} />
+        <Route path="/verify-email" element={<UserAreaGuard> <VerifyEmail /> </UserAreaGuard>} />
+        <Route path="/profile" element={<UserAreaGuard> <Profile /> </UserAreaGuard>} />
+         <Route path="/settings" element={<UserAreaGuard> <Settings /> </UserAreaGuard>} />
 
         <Route path="/login" element={ <GuestRoute> <Login /> </GuestRoute>} />
         <Route path="/register" element={<GuestRoute> <Register /></GuestRoute>} />
-
-        {/* Route profile & settings khusus USER di luar dashboard */}
-        <Route element={<ProtectedRoute roles={["USER"]} />}> 
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/settings" element={<Settings />} />
-        </Route>
-
-        {/* proteksi role USER biar tetap di ecommerce */}
-        <Route element={<ProtectedRoute roles={["USER"]} />}> 
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/placeorder" element={<Placeorder />} />
-        </Route>
 
         <Route element={<ProtectedRoute roles={["ADMIN", "SUPERADMIN", "RESELLER", "KURIR"]} />}>
         <Route
@@ -134,7 +179,7 @@ function AppRoutes() {
           }
         />
       </Route>
-      <Route element={<ProtectedRoute roles={["USER", "ADMIN", "SUPERADMIN", "RESELLER", "KURIR"]} />}>
+      <Route element={<ProtectedRoute roles={["ADMIN", "SUPERADMIN", "RESELLER", "KURIR"]} />}>
         <Route
           path="/dashboard/profile"
           element={
@@ -162,9 +207,5 @@ function AppRoutes() {
 }
 
 export default function App() {
-  return (
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
-  );
+  return <AppRoutes />;
 }

@@ -109,8 +109,8 @@ export default function OrderDetail() {
                 <td className="px-4 py-2">{idx+1}</td>
                 <td className="px-4 py-2">{it.product?.name || it.productId}</td>
                 <td className="px-4 py-2">{it.quantity}</td>
-                <td className="px-4 py-2">Rp {formatRupiah(it.price)}</td>
-                <td className="px-4 py-2">Rp {formatRupiah(it.subtotal)}</td>
+                <td className="px-4 py-2">{formatRupiah(it.price)}</td>
+                <td className="px-4 py-2">{formatRupiah(it.subtotal)}</td>
               </tr>
             ))}
           </tbody>

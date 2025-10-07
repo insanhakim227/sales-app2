@@ -2,9 +2,11 @@ import { useContext, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../Context/AuthContext";
 import { toast } from "react-toastify";
+import { shopContext } from "../Context/ShopContext";
 
 export default function LoginPage() {
   const { login } = useContext(AuthContext);
+  const shop = useContext(shopContext);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,8 +21,43 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const user = await login(email, password);
+
+      // Wait until token is persisted (avoid 401 when calling fetchCart)
+      const waitForToken = async (timeout = 1000) => {
+        const start = Date.now();
+        while (Date.now() - start < timeout) {
+          const token = localStorage.getItem('token');
+          if (token) return true;
+          // small delay
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise(r => setTimeout(r, 80));
+        }
+        return false;
+      };
+      try{
+        const ok = await waitForToken(1202);
+        if (ok) {
+          try{ await shop.fetchCart(); }catch(e){/* ignore */}
+
+          // small retry if cart count still zero
+          try{
+            const cnt = shop.get_Cart_Count ? shop.get_Cart_Count() : 0;
+            if (cnt === 0) {
+              await new Promise(r => setTimeout(r, 250));
+              try{ await shop.fetchCart(); }catch(e){}
+            }
+          }catch(e){}
+
+          // Redirect admin/superadmin to dashboard
+          if (user && user.role && user.role !== 'USER') {
+            navigate('/dashboard');
+            return;
+          }
+        }
+      }catch(e){ console.error('Error waiting for token', e); }
+
+      // Default redirect for USER
       if (user.role === "USER") navigate("/");
-      else navigate("/dashboard");
     } catch (err) {
       const msg = 
       err.response?.data?.error ||
@@ -41,22 +78,30 @@ export default function LoginPage() {
       <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md">
         <h2 className="text-2xl font-bold mb-6 text-center text-indigo-700">Login</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="username"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-          />
+          <div>
+            <label htmlFor="login-email" className="text-sm font-medium text-gray-700">Email</label>
+            <input
+              id="login-email"
+              type="email"
+              placeholder="Email"
+              className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+            />
+          </div>
+          <div>
+            <label htmlFor="login-password" className="text-sm font-medium text-gray-700">Password</label>
+            <input
+              id="login-password"
+              type="password"
+              placeholder="Password"
+              className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </div>
           <button
             type="submit"
             className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition font-semibold"

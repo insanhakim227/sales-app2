@@ -45,7 +45,7 @@ model User {
   lastLogin       DateTime? @map("last_login")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
-  isVerified Boolean  @default(false)
+  isVerified      Boolean   @default(false)
 
   // Relations
   orders         Order[]         @relation("UserOrders")
@@ -135,7 +135,7 @@ model Product {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  category       Category?       @relation(fields: [categoryId], references: [id])
+  category       Category?        @relation(fields: [categoryId], references: [id])
   orderItems     OrderItem[]
   stockMovements StockMovement[]
   carts          Cart[]
@@ -156,6 +156,8 @@ model ProductVariant {
   price     Decimal @db.Decimal(10, 2)
 
   product Product @relation(fields: [productId], references: [id])
+  // opposite relation for Cart.variant
+  carts   Cart[]
 
   @@index([productId])
   @@map("product_variants")
@@ -204,16 +206,21 @@ model OrderItem {
 }
 
 model Cart {
-  id        Int @id @default(autoincrement())
-  userId    Int @map("user_id")
-  productId Int @map("product_id")
-  quantity  Int @default(1)
+  id        Int     @id @default(autoincrement())
+  userId    Int     @map("user_id")
+  productId Int     @map("product_id")
+  quantity  Int     @default(1)
+  variantId Int?    @map("variant_id")
+  size      String?
 
   user    User    @relation(fields: [userId], references: [id])
   product Product @relation(fields: [productId], references: [id])
 
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
+
   @@index([userId])
   @@index([productId])
+  @@index([variantId])
   @@map("cart")
 }
 
@@ -233,7 +240,7 @@ model Review {
   id        Int      @id @default(autoincrement())
   userId    Int
   productId Int
-  rating    Int      // 1-5
+  rating    Int // 1-5
   comment   String?
   createdAt DateTime @default(now())
 

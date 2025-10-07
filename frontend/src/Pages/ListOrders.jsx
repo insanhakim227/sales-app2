@@ -49,7 +49,7 @@ export default function ListOrders() {
                   <td className="px-4 py-2">{idx + 1}</td>
                   <td className="px-4 py-2">{o.id}</td>
                   <td className="px-4 py-2">{o.user?.name || o.userEmail || '—'}</td>
-                  <td className="px-4 py-2">Rp {formatRupiah(o.totalAmount ?? o.total)}</td>
+                  <td className="px-4 py-2">{formatRupiah(o.totalAmount ?? o.total)}</td>
                     <td className="px-4 py-2">{o.status}</td>
                     <td className="px-4 py-2">{o.items?.length ?? 0}</td>
                     <td className="px-4 py-2">{new Date(o.createdAt).toLocaleString()}</td>

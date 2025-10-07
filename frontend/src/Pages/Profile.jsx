@@ -207,17 +207,29 @@ useEffect(() => {
     </div>
 
     {/* Form */}
-    <form onSubmit={handleUpdate} className="space-y-4">
-      <input type="text" className="w-full border px-3 py-2 rounded bg-gray-100 cursor-not-allowed" value={name} disabled />
-      <input type="email" className="w-full border px-3 py-2 rounded bg-gray-100 cursor-not-allowed" value={email} disabled />
-      <input type="text" className="w-full border px-3 py-2 rounded" value={mobile} onChange={e => setMobile(e.target.value)} placeholder="Mobile" />
+      <form onSubmit={handleUpdate} className="space-y-4">
+      <div>
+        <label htmlFor="profile-name" className="text-sm font-medium text-gray-700">Nama Lengkap</label>
+        <input id="profile-name" type="text" className="w-full border px-3 py-2 rounded bg-gray-100 cursor-not-allowed" value={name} disabled />
+      </div>
+      <div>
+        <label htmlFor="profile-email" className="text-sm font-medium text-gray-700">Email</label>
+        <input id="profile-email" type="email" className="w-full border px-3 py-2 rounded bg-gray-100 cursor-not-allowed" value={email} disabled />
+      </div>
+      <div>
+        <label htmlFor="profile-mobile" className="text-sm font-medium text-gray-700">Mobile</label>
+        <input id="profile-mobile" type="text" className="w-full border px-3 py-2 rounded" value={mobile} onChange={e => setMobile(e.target.value)} placeholder="Mobile" />
+      </div>
 
-      <select className="w-full border px-3 py-2 rounded" value={gender} onChange={e => setGender(e.target.value)}>
-        <option value="">Pilih Gender</option>
-        <option value="MALE">Laki-laki</option>
-        <option value="FEMALE">Perempuan</option>
-        <option value="OTHER">Lainnya</option>
-      </select>
+      <div>
+        <label htmlFor="profile-gender" className="text-sm font-medium text-gray-700">Gender</label>
+        <select id="profile-gender" className="w-full border px-3 py-2 rounded" value={gender} onChange={e => setGender(e.target.value)}>
+          <option value="">Pilih Gender</option>
+          <option value="MALE">Laki-laki</option>
+          <option value="FEMALE">Perempuan</option>
+          <option value="OTHER">Lainnya</option>
+        </select>
+      </div>
 
       {/* Grid untuk wilayah */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -314,7 +326,10 @@ useEffect(() => {
         </div>
       </div>
 
-      <input type="text" className="w-full border px-3 py-2 rounded" value={address} onChange={e => setAddress(e.target.value)} placeholder="Alamat Detail" />
+      <div>
+        <label htmlFor="profile-address" className="text-sm font-medium text-gray-700">Alamat Detail</label>
+        <input id="profile-address" type="text" className="w-full border px-3 py-2 rounded" value={address} onChange={e => setAddress(e.target.value)} placeholder="Alamat Detail" />
+      </div>
 
       <button type="submit" className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700" disabled={loading}>
         {loading ? "Menyimpan..." : "Simpan"}

@@ -12,6 +12,9 @@ export default function DashboardProducts(){
   const [tab, setTab] = useState('add'); // add | list | pending
 
   const [form, setForm] = useState({ name: '', price: '', stock: '', description: '' });
+  const SIZE_OPTIONS = ['XS','S','M','L','XL','XXL'];
+  const [variantInputs, setVariantInputs] = useState(() => SIZE_OPTIONS.reduce((acc, s) => ({ ...acc, [s]: { stock: 0, extra: 0 } }), {}));
+  const [categories, setCategories] = useState([]);
   const [file, setFile] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -19,6 +22,16 @@ export default function DashboardProducts(){
   const [toDeleteId, setToDeleteId] = useState(null);
 
   useEffect(()=>{ fetchProducts(); },[])
+
+  useEffect(() => {
+    const fetchCats = async () => {
+      try {
+        const { data } = await api.get('/products/categories');
+        setCategories(data || []);
+      } catch (e) { console.error('Failed fetch categories', e); }
+    };
+    fetchCats();
+  }, []);
 
   const fetchProducts = async ()=>{
     try{
@@ -29,16 +42,28 @@ export default function DashboardProducts(){
 
   const handleCreate = async (e)=>{
     e.preventDefault();
-    const formData = new FormData();
-    formData.append('name', form.name);
-    formData.append('description', form.description);
-    formData.append('price', form.price);
-    formData.append('stock', form.stock);
-    if (file) formData.append('image', file);
+  const formData = new FormData();
+  formData.append('name', form.name);
+  formData.append('description', form.description);
+  formData.append('price', form.price);
+  // compute total stock from variants
+  const totalStock = Object.values(variantInputs).reduce((s, v) => s + (Number(v.stock) || 0), 0);
+  formData.append('stock', totalStock);
+  if (file) formData.append('image', file);
+  if (form.gender) formData.append('gender', form.gender);
+  if (form.categoryId) formData.append('categoryId', form.categoryId);
     try{
       setLoading(true);
-      await api.post('/products', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const { data: product } = await api.post('/products', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      // create variants for sizes with stock > 0
+      for (const s of SIZE_OPTIONS) {
+        const v = variantInputs[s];
+        if (v && Number(v.stock) > 0) {
+          await api.post(`/products/admin/${product.id}/variants`, { size: s, stock: Number(v.stock), price: Number(form.price) + (Number(v.extra) || 0) });
+        }
+      }
   setForm({ name: '', price: '', stock: '', description: '' }); setFile(null);
+  setVariantInputs(SIZE_OPTIONS.reduce((acc, s) => ({ ...acc, [s]: { stock: 0, extra: 0 } }), {}));
   fetchProducts();
   toast.success('Product created (awaiting approval)');
   setTab('pending');
@@ -85,11 +110,59 @@ export default function DashboardProducts(){
       {tab === 'add' && (
         <form onSubmit={handleCreate} className='bg-white p-4 rounded shadow mb-6'>
           <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
-            <input value={form.name} onChange={e=>setForm({...form, name: e.target.value})} placeholder='Name' className='input-field' />
-            <input value={form.price} onChange={e=>setForm({...form, price: e.target.value})} placeholder='Price' className='input-field' />
-            <input value={form.stock} onChange={e=>setForm({...form, stock: e.target.value})} placeholder='Stock' className='input-field' />
-            <input type='file' onChange={e=>setFile(e.target.files[0])} />
-            <textarea value={form.description} onChange={e=>setForm({...form, description: e.target.value})} placeholder='Description' className='input-field col-span-2' />
+            <div>
+              <label htmlFor="product-name" className="text-sm font-medium text-gray-700">Nama Produk</label>
+              <input id="product-name" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} placeholder='Name' className='input-field block w-full border px-3 py-2 rounded' />
+            </div>
+            <div>
+              <label htmlFor="product-price" className="text-sm font-medium text-gray-700">Harga</label>
+              <input id="product-price" value={form.price} onChange={e=>setForm({...form, price: e.target.value})} placeholder='Price' className='input-field block w-full border px-3 py-2 rounded' />
+            </div>
+            <div className='md:col-span-2'>
+              <label className="text-sm font-medium text-gray-700">Stok per Size (kosongkan bila tidak ada)</label>
+              <div className='grid grid-cols-2 md:grid-cols-3 gap-2 mt-2'>
+                {SIZE_OPTIONS.map(s => (
+                  <div key={s} className='border p-2 rounded'>
+                    <div className='font-semibold'>{s}</div>
+                    <input type='number' min={0} value={variantInputs[s].stock} onChange={e=>setVariantInputs(prev=>({ ...prev, [s]: { ...prev[s], stock: Number(e.target.value) } }))} className='w-full border px-2 py-1 rounded mt-1' placeholder='Stock' />
+                    <input type='number' min={0} value={variantInputs[s].extra} onChange={e=>setVariantInputs(prev=>({ ...prev, [s]: { ...prev[s], extra: Number(e.target.value) } }))} className='w-full border px-2 py-1 rounded mt-1' placeholder='Extra price (Rp)' />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700">Gambar Produk</label>
+              <div className='mt-2'>
+                <input id="product-image" type='file' onChange={e=>setFile(e.target.files[0])} className='hidden' />
+                <label htmlFor='product-image' className='w-40 h-40 border rounded-lg flex items-center justify-center cursor-pointer overflow-hidden'>
+                  {file ? (
+                    <img src={URL.createObjectURL(file)} alt='preview' className='w-full h-full object-cover' />
+                  ) : (
+                    <div className='text-center text-sm text-gray-500'>Click to upload image</div>
+                  )}
+                </label>
+              </div>
+            </div>
+            <div>
+              <label htmlFor="product-gender" className="text-sm font-medium text-gray-700">Gender</label>
+              <select id="product-gender" className="w-full border px-3 py-2 rounded" value={form.gender || ''} onChange={e=>setForm({...form, gender: e.target.value})}>
+                <option value="">(none)</option>
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="product-category" className="text-sm font-medium text-gray-700">Category</label>
+              <select id="product-category" className="w-full border px-3 py-2 rounded" value={form.categoryId || ''} onChange={e=>setForm({...form, categoryId: e.target.value})}>
+                <option value="">(no category)</option>
+                {categories.map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+            </div>
+            <div className='md:col-span-2'>
+              <label htmlFor="product-desc" className="text-sm font-medium text-gray-700">Deskripsi</label>
+              <textarea id="product-desc" value={form.description} onChange={e=>setForm({...form, description: e.target.value})} placeholder='Description' className='input-field col-span-2 block w-full border px-3 py-2 rounded' />
+            </div>
           </div>
           <div className='mt-3'>
             <button disabled={loading} className='px-4 py-2 bg-indigo-600 text-white rounded'>Create Product</button>

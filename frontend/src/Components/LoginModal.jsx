@@ -37,14 +37,38 @@ export default function LoginModal({ isOpen, onClose, onSuccess }){
         return false;
       };
       try{
-        await waitForToken(1200);
-        if (shop?.queuedAdd) {
-          // open confirmation for queued add (shop will show confirm modal)
-          shop.addToCartAfterLogin();
+        const ok = await waitForToken(1200);
+        if (ok) {
+          // ensure cart is fetched so bubble/count updates
+          try{ await shop.fetchCart(); }catch(e){/* ignore */}
+          // small retry if cart count still zero
+          try{
+            const cnt = shop.get_Cart_Count ? shop.get_Cart_Count() : 0;
+            if (cnt === 0) {
+              await new Promise(r=>setTimeout(r, 250));
+              try{ await shop.fetchCart(); }catch(e){}
+            }
+          }catch(e){}
+
+          // If admin/superadmin, always redirect to dashboard and DO NOT run queuedAdd
+          if (user && user.role && user.role !== 'USER') {
+            onSuccess && onSuccess(user);
+            onClose();
+            navigate('/dashboard');
+            return;
+          }
+
+          // For normal USER, if there was a queued add, trigger confirm
+          if (shop?.queuedAdd) {
+            shop.addToCartAfterLogin();
+            onSuccess && onSuccess(user);
+            onClose();
+            return;
+          }
         }
       }catch(e){ console.error('Error waiting for token', e); }
-      onSuccess && onSuccess(user);
-      onClose();
+      // no queued add — redirect by role (default to home)
+      try{ onSuccess && onSuccess(user); onClose(); navigate('/'); }catch(e){}
     }catch(err){
       toast.error('Login gagal, cek email/password');
     }finally{ setLoading(false); }
@@ -55,8 +79,14 @@ export default function LoginModal({ isOpen, onClose, onSuccess }){
       <div className="bg-white rounded shadow-lg w-full max-w-md p-6">
         <h3 className="text-xl font-semibold mb-4">Login</h3>
         <form onSubmit={handleSubmit} className="space-y-3">
-          <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full px-3 py-2 border rounded" />
-          <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" className="w-full px-3 py-2 border rounded" />
+          <div>
+            <label htmlFor="modal-email" className="text-sm font-medium text-gray-700">Email</label>
+            <input id="modal-email" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full px-3 py-2 border rounded" />
+          </div>
+          <div>
+            <label htmlFor="modal-password" className="text-sm font-medium text-gray-700">Password</label>
+            <input id="modal-password" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" className="w-full px-3 py-2 border rounded" />
+          </div>
           <div className="flex justify-end gap-2">
             <button type="button" onClick={onClose} className="px-3 py-1 bg-gray-200 rounded">Batal</button>
             <button type="submit" disabled={loading} className="px-3 py-1 bg-indigo-600 text-white rounded">{loading ? 'Loading...' : 'Login'}</button>

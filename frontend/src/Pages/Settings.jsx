@@ -39,20 +39,28 @@ export default function Settings() {
       <h2 className="text-xl font-bold mb-4">Pengaturan Akun</h2>
       <form onSubmit={handlePasswordUpdate} className="space-y-4 mb-8">
         <div className="font-semibold mb-2">Ubah Password</div>
-        <input
-          type="password"
-          className="w-full border px-3 py-2 rounded"
-          value={oldPassword}
-          onChange={e => setOldPassword(e.target.value)}
-          placeholder="Password lama"
-        />
-        <input
-          type="password"
-          className="w-full border px-3 py-2 rounded"
-          value={newPassword}
-          onChange={e => setNewPassword(e.target.value)}
-          placeholder="Password baru"
-        />
+        <div>
+          <label htmlFor="old-password" className="text-sm font-medium text-gray-700">Password Lama</label>
+          <input
+            id="old-password"
+            type="password"
+            className="w-full border px-3 py-2 rounded"
+            value={oldPassword}
+            onChange={e => setOldPassword(e.target.value)}
+            placeholder="Password lama"
+          />
+        </div>
+        <div>
+          <label htmlFor="new-password" className="text-sm font-medium text-gray-700">Password Baru</label>
+          <input
+            id="new-password"
+            type="password"
+            className="w-full border px-3 py-2 rounded"
+            value={newPassword}
+            onChange={e => setNewPassword(e.target.value)}
+            placeholder="Password baru"
+          />
+        </div>
         <button
           type="submit"
           className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700"

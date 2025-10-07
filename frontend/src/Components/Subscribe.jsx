@@ -25,7 +25,9 @@ const Subscribe = () => {
                     <div className="flex gap-2">
                         <div className="relative flex-1">
                             <EnvelopeIcon className="h-6 w-6 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <label htmlFor="subscribe-email" className="sr-only">Email untuk berlangganan</label>
                             <input
+                                id="subscribe-email"
                                 type="email"
                                 placeholder="Enter your email"
                                 className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
