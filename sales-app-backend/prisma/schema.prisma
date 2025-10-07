@@ -154,6 +154,7 @@ model ProductVariant {
   color     String? // Black, White, etc
   stock     Int     @default(0)
   price     Decimal @db.Decimal(10, 2)
+  isActive  Boolean @default(true)
 
   product Product @relation(fields: [productId], references: [id])
   // opposite relation for Cart.variant

@@ -243,27 +243,52 @@ const listCategories = async (req, res) => {
 
 // Admin: delete product
 const deleteProductAdmin = async (req, res) => {
+  const { id } = req.params;
   try {
-    const id = Number(req.params.id);
-    if (!id || Number.isNaN(id)) return res.status(400).json({ error: 'Invalid product id' });
-    const prev = await prisma.product.findUnique({ where: { id } });
-    if (!prev) return res.status(404).json({ error: 'Product not found' });
-    // delete image file
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      if (prev.imageUrl && prev.imageUrl.startsWith('/image-product/')) {
-        const prevFilename = prev.imageUrl.replace('/image-product/', '');
-        const prevPath = path.join(__dirname, '../../public/image-product', prevFilename);
-        fs.unlink(prevPath, err => {});
-      }
-    } catch (e) {}
+    const productId = Number(id);
+    const product = await prisma.product.findUnique({ where: { id: productId } });
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
 
-    await prisma.product.delete({ where: { id } });
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('deleteProductAdmin err', err);
-    res.status(500).json({ error: 'Gagal hapus product' });
+    // Soft-delete: set product.isActive = false and set variants.isActive = false
+    await prisma.product.update({
+      where: { id: productId },
+      data: { isActive: false }
+    });
+
+    await prisma.productVariant.updateMany({
+      where: { productId: productId },
+      data: { isActive: false }
+    });
+
+    // create audit log entry for SUPERADMIN / admin action
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: req.user?.id ?? null,
+          action: 'SOFT_DELETE_PRODUCT',
+          entity: 'Product',
+          entityId: productId,
+          details: {
+            previous: {
+              id: product.id,
+              name: product.name,
+              price: product.price.toString()
+            },
+            note: 'soft-deleted product and variants (isActive=false)'
+          }
+        }
+      });
+    } catch (auditErr) {
+      console.error('Failed to create audit log', auditErr);
+      // continue, don't block main flow
+    }
+
+    return res.json({ success: true, message: 'Product soft-deleted' });
+  } catch (e) {
+    console.error('deleteProductAdmin err', e);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
